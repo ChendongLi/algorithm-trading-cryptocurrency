@@ -1,0 +1,14 @@
+jupyter
+numpy
+pandas
+pyti 
+matplotlib
+tabulate 
+sklearn 
+imblearn 
+mpld3
+pymongo
+seaborn 
+tensorflow
+keras
+hyperas 
