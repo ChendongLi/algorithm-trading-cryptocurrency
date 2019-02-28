@@ -1,3 +1,13 @@
+'''.:.:.::.:.:.:.:.::.:.:.:.:.::.:.:.:.:.::.:.:.:.:.::.:.:
+@author CL
+@email lichendonger@gmail.com
+@copyright CL all rights reserved
+@created Thu Dec 22 2018 12:16:25 GMT-0800 (PST)
+@last-modified Tue Feb 26 2019 17:05:19 GMT-0800 (PST)
+.:.:.::.:.:.:.:.::.:.:.:.:.::.:.:.:.:.::.:.:.:.:.::.:.:'''
+
+import logging
+import utils.logsetup
 from pymongo import MongoClient
 from pymongo.uri_parser import parse_uri
 import pandas as pd
@@ -12,8 +22,8 @@ from dao.constant import EX_TRANS_FEE, HUOBI, BINANCE, BITMEX, TRAINING_DATA_BAT
 from indicator.indicator import directional_movement_index, average_true_range
 from pyti import directional_indicators
 from pyti import bollinger_bands
-# from indicator import keltner
-# from indicator.stationary import stationary 
+
+logger = logging.getLogger(__name__)
 
 class DoubleStrategyLoadData:
 
@@ -27,6 +37,16 @@ class DoubleStrategyLoadData:
                    clause,
                    exchange,
                    batch= TRAINING_DATA_BATCH_SIZE):
+        '''
+        load_mongo: pull data from mongo data
+        Params: 
+                coin (str): name of coin i.e. 'ltc'
+                clause (str): clause to enter start, end time
+                exchange (str): name of exchange i.e. BINANCE
+                batch (int): batch size to pull data from Mongo DB
+        Return: 
+                kline (obj, pandas dataframe):  kline raw data from Mongo DB
+        '''
 
         if exchange == HUOBI:
             mongo_market_url = self.HUOBI_MONGO_MARKET_URL
@@ -53,22 +73,6 @@ class DoubleStrategyLoadData:
             kline.aggregate([{
                 '$match': clause
             }, 
-            # {
-            #     '$sort': {
-            #         'cnt': -1
-            #     }
-            # }, {
-            #     '$group': {
-            #         '_id': '$s',
-            #         'record': {
-            #             '$first': '$$ROOT'
-            #         }
-            #     }
-            # }, {
-            #     '$replaceRoot': {
-            #         'newRoot': '$record'
-            #     }
-            # }, 
             {
                 '$sort': {
                     't': 1
@@ -80,8 +84,8 @@ class DoubleStrategyLoadData:
                 f'Loaded empty data from Mongo database: {mongo_market_url} between start: {clause["t"]["$gte"].isoformat()} and end: {clause["t"]["$lt"].isoformat()}'
             )
         else:
-            temp = pd.DataFrame(data)
-            temp.rename(columns={
+            kline = pd.DataFrame(data)
+            kline.rename(columns={
                 'o': 'open', 
                 'c': 'close', 
                 'h': 'high', 
@@ -93,11 +97,15 @@ class DoubleStrategyLoadData:
                 'e': 'end', 
                 't': 'event_time'
             }, inplace=True)
-            return (temp)
+            return (kline)
 
     def get_vwap(self, pd_coin):
         '''
-        get volume weighted average price
+        get_vwap: get volume weighted average price
+        Params: 
+                pd_coin (obj, pandas dataframe): load coin data from load_mongo
+        Return: 
+                pd_coin_vwap (obj, pandas dataframe):  volume weighted average price
         '''
         # Get Volume Weighte Average Price
         pd_coin['vol'] = pd.to_numeric(pd_coin['vol'])
@@ -119,7 +127,16 @@ class DoubleStrategyLoadData:
 
     def coin_kline(self, coin, base_currency, start, end, exchange):
         '''
-        load single coin and return pandas data
+        coin_kline: load single coin and return pandas data
+        Params: 
+                coin (str): coin name  i.e. 'ltc'
+                base_currency (str): coin base currency i.e. 'usdt'
+                start (str): data start time string i.e. '1 November 2018 00:00'
+                end (str): data end time string i.e. '18 February 2019 00:00'
+                exchange (str): exchange name i.e. 'BINANCE'
+        Return: 
+                coin_kline (obj, pandas dataframe): pandas dataframe for volume 
+                weighted average price
         '''
 
         coin = coin + base_currency
@@ -131,8 +148,9 @@ class DoubleStrategyLoadData:
             start, '%d %B %Y %H:%M').replace(tzinfo=pytz.UTC)
 
         time_clause = {'s': {'$lt': end, '$gte': start}}
-        print(f'Time start:{start}, end:{end}')
-        print(f'Load kline coin:{coin}')
+        logger.info(f'Time start:{start}, end:{end}')
+        logger.info(f'Load kline coin:{coin}')
+
         coin_kline = self.load_mongo(
             coin=coin,
             clause=time_clause,
@@ -151,7 +169,13 @@ class DoubleStrategyLoadData:
 
     def getVol(self, data, span0=100, col = 'diff'):
         '''
-        get first return log difference Volatility 
+        getVol: get first return log difference Volatility 
+        Params: 
+                data (obj, pandas dataframe): price data
+                span0 (int): moving average window length
+                col (str): the name of the colume to get volatility 
+        Return: 
+                vol (array): volatility array for the selected column 
         '''
         close = data[col]
         df0=close.index.searchsorted(close.index-pd.Timedelta(minutes=1))
@@ -159,14 +183,13 @@ class DoubleStrategyLoadData:
         df0=pd.Series(close.index[df0],  
                     index=close.index[close.shape[0]-df0.shape[0]:])
         try:
-            #diff=close.loc[df0.index]/close.loc[df0.values].values-1 # daily rets
             diff= (np.log(close.loc[df0.index].values) 
-            - np.log(close.loc[df0.values].values)) # daily rets
+                    - np.log(close.loc[df0.values].values)) # daily rets
             
             diff = pd.Series(diff, index = df0.index[(df0.shape[0] - len(diff)):])[2:]
 
         except Exception as e:
-            print(f'error: {e}\nplease confirm no duplicate indices')
+            logger.info(f'error: {e}\nplease confirm no duplicate indices')
 
         vol=diff.ewm(span=span0).std()[span0:].dropna().rename('diffVol')
 
@@ -174,7 +197,14 @@ class DoubleStrategyLoadData:
 
     def washData(self, data, span0 = 1400, col = 'diff'):
         '''
-        filter out events move no more than the mean of minute volatility
+        washData: 
+                filter out events move no more than the mean of minute volatility
+        Params: 
+                data (obj, pandas dataframe): price data
+                span0 (int): moving average window length
+                col (str): the name of the colume to get volatility 
+        Return: 
+                clean_data (obj, pandas dataframe): price data after filtering                
         '''
         # get volatility 
         h = self.getVol(data = data, span0 = span0, col = col).mean()
@@ -186,9 +216,9 @@ class DoubleStrategyLoadData:
             try:
                 pos, neg = float(sPos+diff.loc[i]), float(sNeg+diff.loc[i])
             except Exception as e:
-                print(e)
-                print(sPos+diff.loc[i], type(sPos+diff.loc[i]))
-                print(sNeg+diff.loc[i], type(sNeg+diff.loc[i]))
+                logger.info(e)
+                logger.info(sPos+diff.loc[i], type(sPos+diff.loc[i]))
+                logger.info(sNeg+diff.loc[i], type(sNeg+diff.loc[i]))
                 break
             sPos, sNeg=max(0., pos), min(0., neg)
             
@@ -204,7 +234,18 @@ class DoubleStrategyLoadData:
 
     def load_pair(self, coin_1, coin_2, base_currency, 
                     start, end, exchange):
-
+        '''
+        load_pair: join coin pair data for both kline and depth
+        Params:
+                coin_1 (str): coin name i.e. 'ltc' 
+                coin_2 (str): coin name i.e. 'eth'
+                base_currency (str): coin name i.e. 'usdt'
+                start: data start time string i.e. '1 November 2018 00:00'
+                end: data end time string i.e. '18 February 2019 00:00'
+                exchange (str): exchange name i.e. 'BINANCE'
+        Return:
+                data (obj, pandas dataframe): price data for two coins (pair)
+        '''
         coin1 = coin_1 + base_currency
         coin2 = coin_2 + base_currency
         # history_hours = 24 * int(settings.DOUBLE_TRAIN_PARAMS['history_day'])
@@ -216,13 +257,15 @@ class DoubleStrategyLoadData:
             start, '%d %B %Y').replace(tzinfo=pytz.UTC)
 
         time_clause = {'s': {'$lt': end, '$gte': start}}
-        print(f'Time start:{start}, end:{end}')
-        print(f'Load kline coin1:{coin1}')
+        logger.info(f'Time start:{start}, end:{end}')
+
+        logger.info(f'Load kline coin1:{coin1}')
         coin1_kline = self.load_mongo(
             coin=coin1,
             clause=time_clause,
             exchange=exchange)
-        print(f'Load kline coin2:{coin2}')
+
+        logger.info(f'Load kline coin2:{coin2}')
         coin2_kline = self.load_mongo(
             coin=coin2,
             clause=time_clause,
@@ -230,23 +273,25 @@ class DoubleStrategyLoadData:
 
         # get kline data by each minute
         pd_coin1_kline = self.get_vwap(
-            coin1_kline).add_suffix('_coin1') #rename(columns={'vwap': 'coin1'})
+            coin1_kline).add_suffix('_coin1') 
         pd_coin2_kline = self.get_vwap(
-            coin2_kline).add_suffix('_coin2') #rename(columns={'vwap': 'coin2'})
+            coin2_kline).add_suffix('_coin2')
 
         # get depth data by each minute
-        print(f'Load depth coin1:{coin1}')
+        logger.info(f'Load depth coin1:{coin1}')
         pd_coin1_depth = GetDepth().load_depth(
             exchange=exchange,
-            coin=coin1,
+            coin=coin_1,
+            base_currency=base_currency, 
             start=start,
             end=end
         ).add_suffix('_coin1')
 
-        print(f'Load depth coin2:{coin2}')
+        logger.info(f'Load depth coin2:{coin2}')
         pd_coin2_depth = GetDepth().load_depth(
             exchange=exchange,
-            coin=coin2,
+            coin=coin_2,
+            base_currency=base_currency, 
             start=start,
             end=end
         ).add_suffix('_coin2')
@@ -261,141 +306,3 @@ class DoubleStrategyLoadData:
             join='inner')
 
         return(data)
-
-    def train_model(self, data, windowHours):
-        time_start = datetime.datetime.now()
-        windowString = str(windowHours) + 'H'
-
-        pd_data = pd.DataFrame(
-            {
-                'coin1': data['vwap_coin1'],
-                'coin2': data['vwap_coin2'],
-                'bid_price_coin1': data['bid_price_coin1'],
-                'ask_price_coin1': data['ask_price_coin1'],
-                'bid_price_coin2': data['bid_price_coin2'],
-                'ask_price_coin2': data['ask_price_coin2'],
-                'diff': data['vwap_coin1'] / data['vwap_coin2'],
-                'high': data['high_coin1'] / data['low_coin2'],
-                'low': data['low_coin1'] / data['high_coin2'],
-                'open': data['open_coin1'] / data['open_coin2'],
-                'close': data['close_coin1'] / data['close_coin2'],
-                'diff_bid_ask': data['bid_price_coin1'] / data['ask_price_coin2'],
-                'diff_ask_bid': data['ask_price_coin1'] / data['bid_price_coin2']
-            },
-            index=data.index
-        )
-
-        pd_data['volatility_value'] = pd_data['diff'].rolling(windowString).std()
-        pd_data['volatility_rolling_value'] = pd_data['volatility_value'].rolling(windowString).mean()
-
-        pd_data['mean'] = pd_data['diff'].rolling(windowString).mean()
-        pd_data['volatility'] = pd_data['volatility_value']/pd_data['mean']
-        pd_data['volatility_rolling'] = pd_data['volatility_value'].rolling(windowString).mean()/pd_data['mean']
-
-
-        pd_data['adx'] = directional_indicators.average_directional_index(
-            list(pd_data['close']),
-            list(pd_data['high']), 
-            list(pd_data['low']), 
-            60
-            )
-        pd_data['adx_quantile'] = pd_data['adx'].rolling(60*24).quantile(0.45
-        , interpolation='lower')
-
-        pd_data['adx_quantile_20%'] = pd_data['adx'].rolling(60*24).quantile(0.2
-        , interpolation='lower')
-
-        pd_data = directional_movement_index(pd_data, 60)
-
-        training_start = pd_data.index.min() + datetime.timedelta(hours=windowHours)
-        pd_data = pd_data[pd_data.index >= training_start]
-        pd_data = pd_data.dropna()
-
-        print(
-            f'time usage: {str(datetime.datetime.now() - time_start)} seconds')
-
-        return pd_data
-
-    def train_research(self, data, windowHours):
-        time_start = datetime.datetime.now()
-        windowString = str(windowHours) + 'H'
-
-        pd_data = pd.DataFrame(
-            {
-                'coin1': data['vwap_coin1'],
-                'coin2': data['vwap_coin2'],
-                'bid_price_coin1': data['bid_price_coin1'],
-                'ask_price_coin1': data['ask_price_coin1'],
-                'bid_price_coin2': data['bid_price_coin2'],
-                'ask_price_coin2': data['ask_price_coin2'],
-                'diff': data['vwap_coin1'] / data['vwap_coin2'],
-                'high': data['high_coin1'] / data['vwap_coin2'],
-                'low': data['vwap_coin1'] / data['high_coin2'],
-                'open': data['open_coin1'] / data['open_coin2'],
-                'close': data['close_coin1'] / data['close_coin2'],
-                'diff_bid_ask': data['bid_price_coin1'] / data['ask_price_coin2'],
-                'diff_ask_bid': data['ask_price_coin1'] / data['bid_price_coin2']
-            },
-            index=data.index
-        )
-
-        pd_data['volatility_value'] = pd_data['diff'].ewm(span= 60*3).std()
-        pd_data['volatility_rolling_value'] = pd_data['volatility_value'].ewm(span= 3*60).mean()
-
-        pd_data['mean'] = pd_data['diff'].rolling(
-            6*60).mean()
-        pd_data['volatility'] = pd_data['volatility_value']/pd_data['mean']
-        pd_data['volatility_rolling'] = pd_data['volatility_value'].rolling(
-            3*60).quantile(0.8, interpolation='lower')/pd_data['mean']
-
-        # pd_data['skew'] = pd_data['diff'].rolling(
-        #     6*60).skew()
-
-        # pd_data['skew_upper'] = pd_data['skew'].rolling(
-        #     6*60).quantile(0.7)
-
-        # pd_data['skew_lower'] = pd_data['skew'].rolling(
-        #     6*60).quantile(0.3)
-
-        # pd_data['upper_bb'] = bollinger_bands.upper_bollinger_band(list(pd_data['close']), 6*60, std_mult= 1.5)
-        # pd_data['lower_bb'] = bollinger_bands.lower_bollinger_band(list(pd_data['close']), 6*60, std = 1.5)
-
-        # pd_data['upper_kb'] = keltner.upper_band(
-        #     list(pd_data['close']),
-        #     list(pd_data['high']), 
-        #     list(pd_data['low']), 
-        #     60*6,
-        #     5)
-
-        # pd_data['lower_kb'] = keltner.lower_band(            
-        #     list(pd_data['close']),
-        #     list(pd_data['high']), 
-        #     list(pd_data['low']), 
-        #     60*6,
-        #     5)
-
-        # pd_data['stationary'] = pd_data['diff'].rolling(40*24).apply(lambda x: stationary(x)[0], raw = False)
-        pd_data['adx'] = directional_indicators.average_directional_index(
-            list(pd_data['close']),
-            list(pd_data['high']), 
-            list(pd_data['low']), 
-            90
-            )
-        pd_data['adx_quantile'] = 5.0
-        #pd_data['adx'].rolling(60*6).mean()
-        #quantile(0.45
-        #, interpolation='lower')
-
-        pd_data['adx_quantile_20%'] = pd_data['adx'].rolling(60*72).quantile(0.2
-        , interpolation='lower')
-
-        #pd_data = directional_movement_index(pd_data, 60)
-
-        training_start = pd_data.index.min() + datetime.timedelta(hours=windowHours)
-        pd_data = pd_data[pd_data.index >= training_start]
-        pd_data = pd_data.dropna()
-
-        print(
-            f'time usage: {str(datetime.datetime.now() - time_start)} seconds')
-
-        return pd_data

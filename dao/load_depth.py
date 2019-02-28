@@ -1,9 +1,15 @@
-from dao.constant import EX_TRANS_FEE, HUOBI, BINANCE, BITMEX, TRAINING_DATA_BATCH_SIZE
+'''.:.:.::.:.:.:.:.::.:.:.:.:.::.:.:.:.:.::.:.:.:.:.::.:.:
+@author CL
+@email lichendonger@gmail.com
+@copyright CL all rights reserved
+@created Thu Dec 23 2018 10:12 GMT-0800 (PST)
+@last-modified Tue Feb 26 2019 18:02 GMT-0800 (PST)
+.:.:.::.:.:.:.:.::.:.:.:.:.::.:.:.:.:.::.:.:.:.:.::.:.:'''
+
 import warnings
 warnings.filterwarnings("ignore", category=DeprecationWarning)
-
-from pytz import timezone
 import pytz
+from pytz import timezone
 import numpy as np
 import time
 import datetime
@@ -11,7 +17,7 @@ import pandas as pd
 from pymongo.uri_parser import parse_uri
 from pymongo import MongoClient
 
-
+from dao.constant import EX_TRANS_FEE, HUOBI, BINANCE, BITMEX, TRAINING_DATA_BATCH_SIZE
 
 class GetDepth:
     '''
@@ -27,7 +33,15 @@ class GetDepth:
         self.BINANCE_MONGO_MARKET_URL = 'mongodb://admin:admin@trade.questflex.com:32017/binance-market-data'
 
     def mongo_query(self, client_db, clause, batch):
-
+        '''
+        mongo_query: query coin depth data from mongo
+        Params:
+                client_db (obj): coin specific db object
+                clause: mongo query 
+                batch: batch size for each query
+        Return: 
+                pd_depth (obj, pandas dataframe): pandas depth data 
+        '''
         pd_depth = pd.DataFrame(list(client_db.aggregate([
             {'$match': clause},
             {"$project":{
@@ -172,16 +186,21 @@ class GetDepth:
 
         return (pd_depth)
 
-    def load_depth(self, exchange, coin, start, end,
-                   batch= TRAINING_DATA_BATCH_SIZE):
+    def load_depth(self, exchange, coin, base_currency, 
+                    start, end, batch= TRAINING_DATA_BATCH_SIZE):
         '''
-        exchange: 'huobi' or 'binnance'
-        coin : string i.e. 'ltcbtc'
-        start: start time '28 December 2018'
-        end: end time  '29 December 2018'
-        batch: int  i.e. 50000
+        load_depth: load depth data from Mongo
+        Params:
+                exchange: 'huobi' or 'binnance'
+                coin : string i.e. 'ltcbtc'
+                start: start time '28 December 2018'
+                end: end time  '29 December 2018'
+                batch: int  i.e. 50000
+        Return:
+                pd_depth (obj, pandas dataframe): pandas depth data
         '''
         time_start = datetime.datetime.now()
+        coin = coin + base_currency
 
         if exchange == HUOBI:
             mongo_market_url = self.HUOBI_MONGO_MARKET_URL

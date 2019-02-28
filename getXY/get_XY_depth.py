@@ -12,45 +12,41 @@ from indicator.indicator import directional_movement_index as adx_indicator
 import warnings
 
 class DataPrepareForXY:
-    def __init__(self, lookback_minutes, lookforward_minutes):
-        self.random_state = 42
-        self.n_jobs = 1
-        self.train_val = 0.7
-        self.train_test = 0.9
-        self.lookback_minutes = lookback_minutes 
-        self.step = 1
-        self.lookforward_minutes = lookforward_minutes
-        self.rolling_window = self.lookback_minutes
-        self.dir = '/Users/cli/Data/pair_selection/forecast_skewness'
+    '''
+    DataPrepareForXY: process data to get input X and taget Y
+    '''
+    def __init__(self, train_val, train_test):
+        '''
+        Params:
+                train_val (float): train and validation split 
+                train_test (float): train and test split
+        '''
+        self.train_val = train_val
+        self.train_test = train_test
 
     def remap(self, x):
+        '''
+        remap: normalize x between -1 and 1
+        Paras: 
+                x (array): input X
+        Return: 
+                (array): normalized input X
+        '''
         x = np.array(x)
         p = int(len(x) * self.train_val)
         x_train = x[0:p]
 
         return (x - x_train.min()) / (x_train.max() - x_train.min())
-
-    def moving_average_convergence(self, group):
-        nslow = 7
-        nfast = 21
-
-        emaslow = group.ewm(span=nslow, min_periods=1).mean().values.tolist()
-        emafast = group.ewm(span=nfast, min_periods=1).mean().values.tolist()
-
-        return np.array(emafast) -np.array(emaslow)
-    
-    def shuffle_in_unison(self, a, b):
-        assert len(a) == len(b)
-        shuffled_a = np.empty(a.shape, dtype=a.dtype)
-        shuffled_b = np.empty(b.shape, dtype=b.dtype)
-        permutation = np.random.permutation(len(a))
-        for old_index, new_index in enumerate(permutation):
-            shuffled_a[new_index] = a[old_index]
-            shuffled_b[new_index] = b[old_index]
-
-        return shuffled_a, shuffled_b
-    
+        
     def train_test_split(self, X, y):
+        '''
+        train_test_split: split train and test into train, validation, test set
+        Paras:
+                X (array): input X 
+                y (array): target y
+        Return: 
+                (array): train, valation, test for input X and target Y
+        '''
         p_val = int(len(X) * self.train_val)
         p_test = int(len(X) * self.train_test)
 
@@ -65,7 +61,14 @@ class DataPrepareForXY:
         return (X_train, X_val, X_test, Y_train, Y_val, Y_test)
 
     def get_feature_names(self, column_names, lookback_minutes):
-
+        '''
+        get_feature_names: get each feature name to evalute feature importance
+        Paras:
+                column_names (str)
+                lookback_minutes (int)
+        Return: 
+                feature_names (list)
+        '''
         feature_names = []
         for i in range(0, len(column_names)):
             for n in range(lookback_minutes-1, -1, -1):
@@ -73,7 +76,24 @@ class DataPrepareForXY:
         
         return feature_names
 
-    def get_XY(self, data_original, up_factor, down_factor):
+    def get_XY(self, data_original, lookback_minutes, lookforward_minutes, 
+                up_factor, down_factor, step, model):
+        '''
+        get_XY: data process to get input X and target Y
+        Params:
+                data_original (obj pandas dataframe)
+                lookback_minute (int): the number of historical minutes to predict future
+                lookforward_minutes (int): the number of future minutes for prediction 
+                up_factor (float): price increase percentage (i.e 1.0 is up 1.0%)
+                down_factor (float): price decrease percentage (i.e 1.0 is down 1.0%)
+                step (int): input interval (i.e. 1 minute, 2 minutes etc)
+        Return: 
+                X (array): input X
+                Y (array): taget Y
+                feature_name (string)
+                closet_test (array): original price in test set
+                dateminute (array): original dataminute through all input X
+        '''
 
         date_minute = data_original.index.tolist()
         pricep = data_original.loc[:, 'close'].tolist()
@@ -91,20 +111,20 @@ class DataPrepareForXY:
         ibp = self.remap(data_original.loc[:, 'ib'].tolist()) 
 
         label, X, Y, close_test, dateminute= {}, [], [], [], []
-        for i in range(self.lookback_minutes, len(data_original)-self.lookforward_minutes
-                        -self.lookback_minutes, self.step): 
-            c = closep[i:i+self.lookback_minutes]
-            v = volumep[i:i+self.lookback_minutes]
-            abp_cumdiff = abp_cumdiffp[i:i+self.lookback_minutes]
-            abp_spread = abp_spreadp[i:i+self.lookback_minutes]
-            abs_cumdiff =  abs_cumdiffp[i:i+self.lookback_minutes]
-            abs_spread = abs_spreadp[i:i+self.lookback_minutes]
-            ap_avg = ap_avgp[i:i+self.lookback_minutes]
-            as_sum = as_sump[i:i+self.lookback_minutes]
-            bp_avg = bp_avgp[i:i+self.lookback_minutes]
-            bs_sum = bs_sump[i:i+self.lookback_minutes]
-            midp =  midpp[i:i+self.lookback_minutes]
-            ib = ibp[i:i+self.lookback_minutes]
+        for i in range(lookback_minutes, len(data_original)-lookforward_minutes
+                        -lookback_minutes, step): 
+            c = closep[i:i+lookback_minutes]
+            v = volumep[i:i+lookback_minutes]
+            abp_cumdiff = abp_cumdiffp[i:i+lookback_minutes]
+            abp_spread = abp_spreadp[i:i+lookback_minutes]
+            abs_cumdiff =  abs_cumdiffp[i:i+lookback_minutes]
+            abs_spread = abs_spreadp[i:i+lookback_minutes]
+            ap_avg = ap_avgp[i:i+lookback_minutes]
+            as_sum = as_sump[i:i+lookback_minutes]
+            bp_avg = bp_avgp[i:i+lookback_minutes]
+            bs_sum = bs_sump[i:i+lookback_minutes]
+            midp =  midpp[i:i+lookback_minutes]
+            ib = ibp[i:i+lookback_minutes]
 
             # macd = self.remap(macd)
             # williams = self.remap(williams)
@@ -123,7 +143,7 @@ class DataPrepareForXY:
 
             ###### if only use price 
             # x_i = np.reshape(c, 
-            # (self.lookback_minutes, -1))
+            # (lookback_minutes, -1))
 
             x_i = np.column_stack((
                  c, v, ib, abp_cumdiff, abs_cumdiff, abp_spread, abs_spread))
@@ -135,15 +155,16 @@ class DataPrepareForXY:
                 #'v', 'abp_cumdiff', 'abp_spread', 'abs_cumdiff', 'abs_spread']
                 #, 'ap_avg', 'as_sum', 'bp_avg', 'bs_sum', 'midp'
                 #]
-            #x_i = x_i.flatten()
+            if model == 'nn':
+                x_i = x_i.flatten()
 
-            for j in range(i+self.lookback_minutes
-            , i+self.lookback_minutes+self.lookforward_minutes):
+            for j in range(i+lookback_minutes
+            , i+lookback_minutes+lookforward_minutes):
                 warnings.filterwarnings('error')
                 try:
                     label['forward%s' % str(j)] = (
-                        closep[j] - closep[i+self.lookback_minutes -1]
-                        )/closep[i+self.lookback_minutes -1] * 100
+                        closep[j] - closep[i+lookback_minutes -1]
+                        )/closep[i+lookback_minutes -1] * 100
                 except ZeroDivisionError as e:
                     label['forward%s' % str(j)] = 0.0
                     print('zero eorr', e)
@@ -156,7 +177,7 @@ class DataPrepareForXY:
             
             ####################
             ###label trend 
-            #     if j == i+ self.lookback_minutes:
+            #     if j == i+ lookback_minutes:
             #         down_tot = (label['forward%s' % str(j)] > - down_factor)
             #         up_tot = (label['forward%s' % str(j)] > up_factor)    
             #     else:  
@@ -170,22 +191,22 @@ class DataPrepareForXY:
 
             #####################
             ### baseline test for single up or down
-            # if label['forward%s' % str(i+self.lookback_minutes)] > 0:
+            # if label['forward%s' % str(i+lookback_minutes)] > 0:
             #     label['UpDown'] = 1
             # else:
             #     label['UpDown']= 0
 
             ######################
             ## label spike
-            if label['forward%s' % str(i+self.lookback_minutes)] <- down_factor :
+            if label['forward%s' % str(i+lookback_minutes)] <- down_factor :
                 label['UpDown'] = 1
             else:
                 label['UpDown']= 0       
             
             y_i = int(label['UpDown'])
-            closeptest_i = pricep[i+self.lookback_minutes
+            closeptest_i = pricep[i+lookback_minutes
                             ]
-            dateminute_i = date_minute[i+self.lookback_minutes
+            dateminute_i = date_minute[i+lookback_minutes
                           ]
 
             X.append(x_i)
@@ -195,6 +216,6 @@ class DataPrepareForXY:
 
         X, Y = np.array(X), np.array(Y)
 
-        feature_names = self.get_feature_names(column_names, self.lookback_minutes)
+        feature_names = self.get_feature_names(column_names, lookback_minutes)
 
         return X, Y, feature_names, close_test, dateminute
