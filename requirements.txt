@@ -1,5 +1,6 @@
 jupyter
 numpy
+python-dotenv
 pandas
 pyti 
 matplotlib

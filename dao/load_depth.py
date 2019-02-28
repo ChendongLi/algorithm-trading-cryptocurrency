@@ -11,13 +11,12 @@ warnings.filterwarnings("ignore", category=DeprecationWarning)
 import pytz
 from pytz import timezone
 import numpy as np
+from settings import Config as settings
 import time
 import datetime
 import pandas as pd
 from pymongo.uri_parser import parse_uri
 from pymongo import MongoClient
-
-from dao.constant import EX_TRANS_FEE, HUOBI, BINANCE, BITMEX, TRAINING_DATA_BATCH_SIZE
 
 class GetDepth:
     '''
@@ -29,8 +28,8 @@ class GetDepth:
 
         self.table_convention = '.depth.level150'
         self.col = ['bid_price', 'bid_size', 'ask_price', 'ask_size', 't']
-        self.HUOBI_MONGO_MARKET_URL = 'mongodb://admin:admin@trade.questflex.com:32017/huobi-market-data'
-        self.BINANCE_MONGO_MARKET_URL = 'mongodb://admin:admin@trade.questflex.com:32017/binance-market-data'
+        self.HUOBI_MONGO_MARKET_URL = settings.HUOBI_MONGO_MARKET_URL
+        self.BINANCE_MONGO_MARKET_URL = settings.BINANCE_MONGO_MARKET_URL
 
     def mongo_query(self, client_db, clause, batch):
         '''
@@ -152,42 +151,18 @@ class GetDepth:
                         {"$arrayElemAt":[{"$arrayElemAt": ["$b",4]}, 1]}]
                     }
                 ]}
-                # "bid_price1": {"$arrayElemAt":[{"$arrayElemAt": ["$b",1]}, 0]},
-                # "bid_size1": {"$arrayElemAt":[{"$arrayElemAt": ["$b",1]}, 1]},
-                # "ask_price1": {"$arrayElemAt":[{"$arrayElemAt": ["$a",1]}, 0]},
-                # "ask_size1": {"$arrayElemAt":[{"$arrayElemAt": ["$a",1]}, 1]}
                 }
             },
-            # { "$group":{
-            # "_id": {
-            #         "year": { "$year": "$t" },
-            #         "dayOfYear": { "$dayOfYear": "$t" },
-            #         "hour": { "$hour": "$t" },
-            #         "minute": { "$minute": "$t" }
-            #     },
-            #     "bid_price": {"$last":"$bid_price" },
-            #     "bid_size": { "$last": "$bid_size" },
-            #     "ask_price": {"$last":"$ask_price" },
-            #     "ask_size": { "$last": "$ask_size" },
-            #     "t": { "$last": "$t" }
-            #     }
-            # },
-            # {"$project":{ 
-            #     "_id": 0
-            #     }
-            # },
             {"$sort":{
                 "t": 1
                 }
             }
             ], allowDiskUse=True).batch_size(batch)))
-            #,  columns=self.col)
-
 
         return (pd_depth)
 
     def load_depth(self, exchange, coin, base_currency, 
-                    start, end, batch= TRAINING_DATA_BATCH_SIZE):
+                    start, end, batch):
         '''
         load_depth: load depth data from Mongo
         Params:
@@ -202,9 +177,9 @@ class GetDepth:
         time_start = datetime.datetime.now()
         coin = coin + base_currency
 
-        if exchange == HUOBI:
+        if exchange == 'huobi':
             mongo_market_url = self.HUOBI_MONGO_MARKET_URL
-        elif exchange == BINANCE:
+        elif exchange == 'binance':
             mongo_market_url = self.BINANCE_MONGO_MARKET_URL
 
         if not mongo_market_url:

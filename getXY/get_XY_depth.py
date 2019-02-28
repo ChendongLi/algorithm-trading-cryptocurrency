@@ -2,7 +2,6 @@ import datetime
 import numpy as np
 import pandas as pd
 from dao.load_data import DoubleStrategyLoadData as train
-from dao.constant import EX_TRANS_FEE, HUOBI, BINANCE, BITMEX, TRAINING_DATA_BATCH_SIZE
 from tabulate import tabulate
 
 from indicator.indicator import williams_r

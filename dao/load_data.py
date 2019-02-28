@@ -13,15 +13,16 @@ from pymongo.uri_parser import parse_uri
 import pandas as pd
 import datetime
 import pytz
+import json
 from pytz import timezone
 import numpy as np
 import math as math
 from tabulate import tabulate
 from dao.load_depth import GetDepth
-from dao.constant import EX_TRANS_FEE, HUOBI, BINANCE, BITMEX, TRAINING_DATA_BATCH_SIZE
 from indicator.indicator import directional_movement_index, average_true_range
 from pyti import directional_indicators
 from pyti import bollinger_bands
+from settings import Config as settings
 
 logger = logging.getLogger(__name__)
 
@@ -29,14 +30,15 @@ class DoubleStrategyLoadData:
 
     def __init__(self):
 
-        self.HUOBI_MONGO_MARKET_URL = 'mongodb://admin:admin@trade.questflex.com:32017/huobi-market-data'
-        self.BINANCE_MONGO_MARKET_URL = 'mongodb://admin:admin@trade.questflex.com:32017/binance-market-data'
+        self.HUOBI_MONGO_MARKET_URL = settings.HUOBI_MONGO_MARKET_URL
+        self.BINANCE_MONGO_MARKET_URL = settings.BINANCE_MONGO_MARKET_URL
+        self.configs = json.load(open('config.json', 'r'))
 
     def load_mongo(self,
                    coin,
                    clause,
                    exchange,
-                   batch= TRAINING_DATA_BATCH_SIZE):
+                   batch):
         '''
         load_mongo: pull data from mongo data
         Params: 
@@ -48,9 +50,9 @@ class DoubleStrategyLoadData:
                 kline (obj, pandas dataframe):  kline raw data from Mongo DB
         '''
 
-        if exchange == HUOBI:
+        if exchange == 'huobi':
             mongo_market_url = self.HUOBI_MONGO_MARKET_URL
-        elif exchange == BINANCE:
+        elif exchange == 'binance':
             mongo_market_url = self.BINANCE_MONGO_MARKET_URL
 
         if not mongo_market_url:
@@ -125,7 +127,7 @@ class DoubleStrategyLoadData:
 
         return (pd_coin_vwap)
 
-    def coin_kline(self, coin, base_currency, start, end, exchange):
+    def coin_kline(self, coin, base_currency, start, end, exchange, batch):
         '''
         coin_kline: load single coin and return pandas data
         Params: 
@@ -134,13 +136,14 @@ class DoubleStrategyLoadData:
                 start (str): data start time string i.e. '1 November 2018 00:00'
                 end (str): data end time string i.e. '18 February 2019 00:00'
                 exchange (str): exchange name i.e. 'BINANCE'
+                batch (int): batch size to pull data from Mongo DB
         Return: 
                 coin_kline (obj, pandas dataframe): pandas dataframe for volume 
                 weighted average price
         '''
 
         coin = coin + base_currency
-        TR_FEE = float(EX_TRANS_FEE[exchange])
+        TR_FEE = float(self.configs['data']['transaction_fee'][exchange])
 
         end = datetime.datetime.strptime(
             end, '%d %B %Y %H:%M').replace(tzinfo=pytz.UTC)
@@ -154,7 +157,8 @@ class DoubleStrategyLoadData:
         coin_kline = self.load_mongo(
             coin=coin,
             clause=time_clause,
-            exchange=exchange)
+            exchange=exchange,
+            batch=batch)
         
         coin_kline.index = pd.to_datetime(coin_kline['event_time'].dt.strftime('%Y-%m-%d %H:%M:%S')).dt.ceil('30S')
         coin_kline = coin_kline.groupby(coin_kline.index).last()
@@ -233,7 +237,7 @@ class DoubleStrategyLoadData:
         return clean_data
 
     def load_pair(self, coin_1, coin_2, base_currency, 
-                    start, end, exchange):
+                    start, end, exchange, batch):
         '''
         load_pair: join coin pair data for both kline and depth
         Params:
@@ -248,8 +252,7 @@ class DoubleStrategyLoadData:
         '''
         coin1 = coin_1 + base_currency
         coin2 = coin_2 + base_currency
-        # history_hours = 24 * int(settings.DOUBLE_TRAIN_PARAMS['history_day'])
-        TR_FEE = float(EX_TRANS_FEE[exchange])
+        TR_FEE = float(self.configs['data']['transaction_fee'][exchange])
 
         end = datetime.datetime.strptime(
             end, '%d %B %Y').replace(tzinfo=pytz.UTC)
@@ -263,7 +266,8 @@ class DoubleStrategyLoadData:
         coin1_kline = self.load_mongo(
             coin=coin1,
             clause=time_clause,
-            exchange=exchange)
+            exchange=exchange, 
+            batch= batch)
 
         logger.info(f'Load kline coin2:{coin2}')
         coin2_kline = self.load_mongo(

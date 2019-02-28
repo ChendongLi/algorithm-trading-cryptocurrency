@@ -19,7 +19,6 @@ from dao.load_data import DoubleStrategyLoadData as train
 from dao.load_depth import GetDepth
 from chart.chart import chart
 
-from dao.constant import EX_TRANS_FEE, HUOBI, BINANCE
 from getXY.get_XY_depth import DataPrepareForXY as create_XY 
 from forecast.NN import Model
 
@@ -41,15 +40,17 @@ def main(model = 'lstm'):
         base_currency = configs['data']['coin'][1], 
         start = configs['data']['date'][0], 
         end = configs['data']['date'][1], 
-        exchange=BINANCE)
+        exchange=configs['data']['exchange'],
+        batch=configs['data']['data_batch'])
     logger.info(tabulate(pd_kline.head(5), headers = 'keys', tablefmt="psql"))
 
     pd_depth = GetDepth().load_depth(
-        exchange = BINANCE, 
+        exchange = configs['data']['exchange'], 
         coin = configs['data']['coin'][0], 
         base_currency = configs['data']['coin'][1], 
         start = configs['data']['date'][0], 
-        end = configs['data']['date'][1]
+        end = configs['data']['date'][1],
+        batch=configs['data']['data_batch']
     )
     logger.info(tabulate(pd_depth.head(5), headers = 'keys', tablefmt="psql"))
 
@@ -83,17 +84,14 @@ def main(model = 'lstm'):
                                         Y
                                         )
 
-    print(len(Y_train))
-    print(len(Y_train[Y_train == 1]))
-    print('train', len(Y_train[Y_train == 1])/len(Y_train))
-    print(len(Y_val[Y_val == 1]))
-    len(Y_val[Y_val == 1])/len(Y_val)
+    logger.info('positive label train percentage %0.4f' % (len(Y_train[Y_train == 1])/len(Y_train)))
+    logger.info('positive label validation percentage %0.4f' % (len(Y_val[Y_val == 1])/len(Y_val)))
 
     if not os.path.exists(configs[model]['save_dir']): 
         os.makedirs(configs[model]['save_dir'])
 
     save_fname = os.path.join(configs[model]['save_dir'], 
-                '%s-%s.h5' % (datetime.datetime.now().strftime('%d%m%Y-%H%M%S'), model))
+                '%s-%s.h5' % (datetime.datetime.now().strftime('%d%m%Y-%H%M'), model))
 
     ####################
     ## train and prediction

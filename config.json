@@ -1,22 +1,28 @@
-{
+{  
 	"data": {
-		"coin": [
-			"xrp",
-			"usdt"
-        ],
-        "date":[
+		"coin":[
+            "xrp",
+            "usdt"
+      ],
+      "date":[
             "1 November 2018 00:00", 
             "3 November 2018 00:00"
-        ], 
-        "exchange": "binance",
-        "lookback_minutes": 60, 
-        "lookforward_minutes": 20, 
-        "up_factor": 1.0, 
-        "down_factor": 0.5,
-        "step": 1,     
-		"train_val_split": 0.7,   
-        "train_test_split": 0.9
-        },
+      ], 
+      "exchange": "binance",
+      "transaction_fee": {
+         "binance": 0.001,
+         "huobi": 0.002, 
+         "bitmex": 0.00075
+      },
+      "data_batch": 50000, 
+      "lookback_minutes": 60, 
+      "lookforward_minutes": 20, 
+      "up_factor": 1.0, 
+      "down_factor": 0.5,
+      "step": 1,     
+      "train_val_split": 0.7,   
+      "train_test_split": 0.9
+      },
         
     "nn":{
         "save_dir": "saved_models", 

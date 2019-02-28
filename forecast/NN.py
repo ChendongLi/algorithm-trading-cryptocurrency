@@ -97,18 +97,6 @@ class Model:
             tensorboard
 		    ]
 
-        # self.model.add(Dense(100, activation= 'relu', 
-        # input_shape=(self.X_train.shape[1], )))
-        # self.model.add(Dense(10, activation= 'relu'))
-        # self.model.add(Dense(20, activation= 'relu'))
-        # self.model.add(Dropout(0.74))
-        # self.model.add(Dense(1, activation='sigmoid'))
-        # self.model.summary()
-        # self.model.compile(optimizer='adam',
-        #     loss=  'binary_crossentropy', 
-        #     metrics=['accuracy']
-        #     )
-
         for layer in self.configs['nn']['layers']:
             neurons = layer['neurons'] if 'neurons' in layer else None
             dropout_rate = layer['rate'] if 'rate' in layer else None
@@ -152,11 +140,7 @@ class Model:
         '''
 
         NAME = 'LSTM' 
-        print(f'{NAME} Neural Network Training Started')
-        save_fname = os.path.join(
-            'saved_models', 
-            '%s-%s.h5' % (dt.datetime.now().strftime('%d%m%Y-%H%M%S'),str('lstm'))
-            )
+        logger.info(f'{NAME} Neural Network Training Started')
 
         tensorboard = TensorBoard(log_dir=f'logs-{NAME}')
         callbacks = [
@@ -167,18 +151,6 @@ class Model:
             monitor='val_loss', save_best_only=True), 
             tensorboard
 		]
-
-        # self.model.add(LSTM(20, activation= 'relu', return_sequences=True,
-        # input_shape=(self.X_train.shape[1], self.X_train.shape[2])))
-        # self.model.add(BatchNormalization())
-        # self.model.add(LSTM(100, activation= 'relu'))
-        # # self.model.add(Dense(10, activation= 'relu'))
-        # self.model.add(BatchNormalization())
-        # # self.model.add(Dense(20, activation= 'relu'))
-        # self.model.add(Dropout(0.62))
-        # #self.model.add(Flatten())
-        # self.model.add(Dense(1, activation='sigmoid'))
-        # self.model.summary()
 
         for layer in self.configs['lstm']['layers']:
             neurons = layer['neurons'] if 'neurons' in layer else None
