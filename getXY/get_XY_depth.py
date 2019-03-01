@@ -1,7 +1,6 @@
 import datetime
 import numpy as np
 import pandas as pd
-from dao.load_data import DoubleStrategyLoadData as train
 from tabulate import tabulate
 
 from indicator.indicator import williams_r

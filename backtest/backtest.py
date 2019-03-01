@@ -28,7 +28,6 @@ from hyperas.distributions import choice, uniform
 from forecast.NN import Model
 from dao.load_data import DoubleStrategyLoadData as train
 from dao.load_depth import GetDepth
-from dao.constant import EX_TRANS_FEE, HUOBI, BINANCE
 from getXY.get_XY_depth import DataPrepareForXY as create_XY 
 
 def get_testXY(coin, base_currency, start, end, exchange, model_file):
@@ -44,7 +43,8 @@ def get_testXY(coin, base_currency, start, end, exchange, model_file):
 
     pd_depth = GetDepth().load_depth(
         exchange = BINANCE, 
-        coin = coin + base_currency,
+        coin = coin, 
+        base_currency = base_currency, 
         start = start, 
         end = end, 
     )

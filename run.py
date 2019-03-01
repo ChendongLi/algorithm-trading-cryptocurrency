@@ -15,8 +15,9 @@ import numpy as np
 import json
 import os
 
-from dao.load_data import DoubleStrategyLoadData as train
+from dao.load_kline import GetKline
 from dao.load_depth import GetDepth
+from dao.clean_data import CleanKline
 from chart.chart import chart
 
 from getXY.get_XY_depth import DataPrepareForXY as create_XY 
@@ -34,8 +35,8 @@ def main(model = 'lstm'):
     configs = json.load(open('config.json', 'r'))
 
     ####################
-    ## Load Data
-    pd_kline = train().coin_kline(
+    ## Load Kline
+    pd_kline = GetKline().coin_kline(
         coin = configs['data']['coin'][0], 
         base_currency = configs['data']['coin'][1], 
         start = configs['data']['date'][0], 
@@ -43,7 +44,13 @@ def main(model = 'lstm'):
         exchange=configs['data']['exchange'],
         batch=configs['data']['data_batch'])
     logger.info(tabulate(pd_kline.head(5), headers = 'keys', tablefmt="psql"))
+    
+    ### Clean Kline
+    pd_kline_clean = CleanKline(
+        span = configs['data']['clean_span'], 
+        col = configs['data']['volatility_col']).washData(pd_kline)
 
+    ## Load Depth
     pd_depth = GetDepth().load_depth(
         exchange = configs['data']['exchange'], 
         coin = configs['data']['coin'][0], 
@@ -55,7 +62,7 @@ def main(model = 'lstm'):
     logger.info(tabulate(pd_depth.head(5), headers = 'keys', tablefmt="psql"))
 
     pd_kd = pd.concat([
-        pd_kline, 
+        pd_kline_clean, 
         pd_depth],
         axis = 1, 
         join = 'inner')
@@ -109,5 +116,3 @@ def main(model = 'lstm'):
 
 if __name__ == '__main__':
     Y_predict = main(model = 'lstm')
-
-

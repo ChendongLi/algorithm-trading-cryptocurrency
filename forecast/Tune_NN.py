@@ -23,7 +23,6 @@ from hyperas.distributions import choice, uniform
 from dao.load_data import DoubleStrategyLoadData as train
 from dao.load_depth import GetDepth
 
-from dao.constant import EX_TRANS_FEE, HUOBI, BINANCE
 from getXY.get_XY_depth import DataPrepareForXY as create_XY 
 
 class Metrics(Callback):
@@ -67,7 +66,8 @@ def data():
 
     pd_depth = GetDepth().load_depth(
         exchange = exchange, 
-        coin = coin + base_currency,
+        coin = coin, 
+        base_currency = base_currency, 
         start = start, 
         end = end
     )

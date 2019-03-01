@@ -8,8 +8,6 @@
 
 import warnings
 warnings.filterwarnings("ignore", category=DeprecationWarning)
-import pytz
-from pytz import timezone
 import numpy as np
 from settings import Config as settings
 import time
