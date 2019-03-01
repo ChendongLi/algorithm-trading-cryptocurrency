@@ -1,3 +1,11 @@
+'''.:.:.::.:.:.:.:.::.:.:.:.:.::.:.:.:.:.::.:.:.:.:.::.:.:
+@author CL
+@email lichendonger@gmail.com
+@copyright CL all rights reserved
+@created Thu Dec 23 2018 15:10 GMT-0800 (PST)
+@last-modified Wed Feb 27 2019 19:20 GMT-0800 (PST)
+.:.:.::.:.:.:.:.::.:.:.:.:.::.:.:.:.:.::.:.:.:.:.::.:.:'''
+
 from tabulate import tabulate
 import matplotlib
 import os
@@ -57,9 +65,10 @@ class VisualChart:
         history_dict = history.history
         acc_values = history_dict['acc']
         val_acc_values = history_dict['val_acc']
-        epochs = range(1, n_epoch+1)
+        epochs = range(1, n_epoch+1, 1)
         ax.plot(epochs, acc_values, 'bo', color = 'blue', label='Training accuracy')
         ax.plot(epochs, val_acc_values, 'b', color = 'orange', label='Validation accuracy')
+        ax.set_xticks(epochs)
         ax.set_title('Training and validation accuracy')
         ax.set_xlabel('Epochs')
         ax.set_ylabel('Accuracy')
