@@ -18,13 +18,10 @@ import os
 from dao.load_kline import GetKline
 from dao.load_depth import GetDepth
 from dao.clean_data import CleanKline
-from chart.chart import chart
 
 from getXY.get_XY_depth import DataPrepareForXY as create_XY 
 from forecast.NN import Model
-
-import logging
-import utils.logsetup
+from chart.chart import VisualChart
 
 logger = logging.getLogger(__name__)
 
@@ -49,6 +46,9 @@ def main(model = 'lstm'):
     pd_kline_clean = CleanKline(
         span = configs['data']['clean_span'], 
         col = configs['data']['volatility_col']).washData(pd_kline)
+
+    ### Plot Price Volume Chart
+    VisualChart().price_volumn(pd_kline_clean, configs[model]['save_fig'])
 
     ## Load Depth
     pd_depth = GetDepth().load_depth(
@@ -80,7 +80,8 @@ def main(model = 'lstm'):
                             up_factor = configs['data']['up_factor'], 
                             down_factor= configs['data']['down_factor'],
                             step = configs['data']['step'], 
-                            model = model
+                            model = model, 
+                            label_category=configs['data']['label_category']
                             )
 
     X_train, X_val, X_test, Y_train, Y_val, Y_test = create_XY(
@@ -99,6 +100,8 @@ def main(model = 'lstm'):
 
     save_fname = os.path.join(configs[model]['save_dir'], 
                 '%s-%s.h5' % (datetime.datetime.now().strftime('%d%m%Y-%H%M'), model))
+    figs_model_evaluation = os.path.join(configs[model]['save_fig'], 
+                '%s-%s.png' % (datetime.datetime.now().strftime('%d%m%Y-%H%M'), (model + '-evaluation')))
 
     ####################
     ## train and prediction
@@ -107,6 +110,9 @@ def main(model = 'lstm'):
 
     if model == 'lstm':
         history = Model(X_train, Y_train, X_val, Y_val).lstm_fit(save_fname)
+
+    ### plot model evaluation chart
+    VisualChart().model_evaluation(history, configs[model]['epochs'], configs[model]['save_fig'])
 
     Y_predict = Model(X_train, Y_train, X_val, Y_val).predict(
             X_val, 

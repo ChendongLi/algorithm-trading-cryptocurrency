@@ -9,7 +9,6 @@
 import logging
 import utils.logsetup
 import numpy as np
-# import matplotlib.pyplot as plt
 import os
 import datetime as dt
 import json
@@ -207,20 +206,6 @@ class Model:
         self.load_model(model_file)
 
         return self.model.predict(X_test)
-
-# class PlotAccuracy:
-#     def plot(self, history, n_epoch):
-#         history_dict = history.history
-#         acc_values = history_dict['acc']
-#         val_acc_values = history_dict['val_acc']
-#         epochs = range(1, n_epoch+1)
-#         plt.plot(epochs, acc_values, 'bo', label='Training accuracy')
-#         plt.plot(epochs, val_acc_values, 'b', label='Validation accuracy')
-#         plt.title('Training and validation accuracy')
-#         plt.xlabel('Epochs')
-#         plt.ylabel('Accuracy')
-#         plt.legend(loc='best')
-#         plt.show()
 
 class Metrics(Callback):
     '''

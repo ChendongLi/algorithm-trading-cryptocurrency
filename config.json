@@ -21,13 +21,15 @@
       "lookforward_minutes": 20, 
       "up_factor": 1.0, 
       "down_factor": 0.5,
-      "step": 1,     
+      "step": 1, 
+      "label_category": "spike",     
       "train_val_split": 0.7,   
       "train_test_split": 0.9
       },
         
     "nn":{
         "save_dir": "saved_models", 
+        "save_fig": "saved_figures", 
         "early_stop_patience": 10, 
         "loss": "binary_crossentropy", 
         "optimizer": "adam",
@@ -64,6 +66,7 @@
 
     "lstm":{
         "save_dir": "saved_models", 
+        "save_fig": "saved_figures", 
         "early_stop_patience": 10, 
         "loss": "binary_crossentropy", 
         "optimizer_lr": 0.0001,

@@ -75,7 +75,7 @@ class DataPrepareForXY:
         return feature_names
 
     def get_XY(self, data_original, lookback_minutes, lookforward_minutes, 
-                up_factor, down_factor, step, model):
+                up_factor, down_factor, step, model, label_category):
         '''
         get_XY: data process to get input X and target Y
         Params:
@@ -92,9 +92,11 @@ class DataPrepareForXY:
                 closet_test (array): original price in test set
                 dateminute (array): original dataminute through all input X
         '''
-
+        n = 0
         date_minute = data_original.index.tolist()
         pricep = data_original.loc[:, 'close'].tolist()
+
+        #### Input Feature
         closep = self.remap(data_original.loc[:, 'close'].tolist())
         volumep = self.remap(data_original.loc[:, 'amount'].tolist())   
         abp_cumdiffp = self.remap(data_original.loc[:, 'abp_cumdiff'].tolist())
@@ -124,41 +126,20 @@ class DataPrepareForXY:
             midp =  midpp[i:i+lookback_minutes]
             ib = ibp[i:i+lookback_minutes]
 
-            # macd = self.remap(macd)
-            # williams = self.remap(williams)
-            # relative = self.remap(relative)
-            # ichi = self.remap(ichi)
-            # adx_index = self.remap(adx_index)
-            # adx = self.remap(adx)
-            # o = self.remap(o)
-            # h = self.remap(h)
-            # l = self.remap(l)
-            # c = self.remap(c)
-            # v = self.remap(v)
-            # volat = self.remap(volat)
-            # rsk = self.remap(rsk)
-            # rku = self.remap(rku)
-
-            ###### if only use price 
-            # x_i = np.reshape(c, 
-            # (lookback_minutes, -1))
-
             x_i = np.column_stack((
                  c, v, ib, abp_cumdiff, abs_cumdiff, abp_spread, abs_spread))
-                #v , abp_cumdiff, abp_spread, abs_cumdiff, abs_spread))
-                #, ap_avg, as_sum, bp_avg, bs_sum, midp
                 
             column_names = [
                 'close', 'v', 'ib', 'abp_cumdiff', 'abs_cumdiff', 'abp_spread', 'abs_spread' ]
-                #'v', 'abp_cumdiff', 'abp_spread', 'abs_cumdiff', 'abs_spread']
-                #, 'ap_avg', 'as_sum', 'bp_avg', 'bs_sum', 'midp'
-                #]
+
             if model == 'nn':
                 x_i = x_i.flatten()
 
             for j in range(i+lookback_minutes
             , i+lookback_minutes+lookforward_minutes):
                 warnings.filterwarnings('error')
+
+                ### try if divide zero
                 try:
                     label['forward%s' % str(j)] = (
                         closep[j] - closep[i+lookback_minutes -1]
@@ -173,33 +154,21 @@ class DataPrepareForXY:
             warnings.resetwarnings()
             warnings.filterwarnings("ignore",category=DeprecationWarning)
             
-            ####################
-            ###label trend 
-            #     if j == i+ lookback_minutes:
-            #         down_tot = (label['forward%s' % str(j)] > - down_factor)
-            #         up_tot = (label['forward%s' % str(j)] > up_factor)    
-            #     else:  
-            #         d = (label['forward%s' % str(j)] > - down_factor)
-            #         u = (label['forward%s' % str(j)] > up_factor)
-                
-            #         down_tot = down_tot & d 
-            #         up_tot = up_tot | u
-            
-            # label['UpDown'] = down_tot & up_tot
-
             #####################
             ### baseline test for single up or down
-            # if label['forward%s' % str(i+lookback_minutes)] > 0:
-            #     label['UpDown'] = 1
-            # else:
-            #     label['UpDown']= 0
+            if label_category == 'updown':
+                if label['forward%s' % str(i+lookback_minutes)] > 0:
+                    label['UpDown'] = 1
+                else:
+                    label['UpDown']= 0
 
             ######################
             ## label spike
-            if label['forward%s' % str(i+lookback_minutes)] <- down_factor :
-                label['UpDown'] = 1
-            else:
-                label['UpDown']= 0       
+            if label_category == 'spike':
+                if label['forward%s' % str(i+lookback_minutes)] <- down_factor :
+                    label['UpDown'] = 1
+                else:
+                    label['UpDown']= 0       
             
             y_i = int(label['UpDown'])
             closeptest_i = pricep[i+lookback_minutes

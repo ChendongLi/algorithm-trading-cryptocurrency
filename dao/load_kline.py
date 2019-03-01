@@ -12,6 +12,7 @@ from pymongo import MongoClient
 from pymongo.uri_parser import parse_uri
 import pandas as pd
 import datetime
+import pytz
 import json
 import numpy as np
 from settings import Config as settings

@@ -593,22 +593,6 @@ def keltner_channel(data, periods =14, multiplier = 2
     data = data.join(KelChD)
     return data
 
-# def bollinger_bands(data, periods, close_col = '<close>'):
-#     """
-#     :param data: pandas.DataFrame
-#     :param n: 
-#     :return: pandas.DataFrame
-#     """
-#     MA = pd.Series(data[close_col].rolling(periods, min_periods=0).mean())
-#     MSD = pd.Series(data[close_col].rolling(periods, min_periods=0).std())
-#     b1 = 4 * MSD / MA
-#     B1 = pd.Series(b1, name='BollingerB_' + str(periods))
-#     data = data.join(B1)
-#     b2 = (data[close_col] - MA + 2 * MSD) / (4 * MSD)
-#     B2 = pd.Series(b2, name='bband')
-#     data = data.join(B2)
-#     return data
-
 """
 Chaikin Volatility (CV)
 Source: https://www.marketvolume.com/technicalanalysis/chaikinvolatility.asp

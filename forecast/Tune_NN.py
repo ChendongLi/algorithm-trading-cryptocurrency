@@ -1,6 +1,6 @@
 import numpy as np
-import matplotlib.pyplot as plt
 import os
+import json
 import pandas as pd
 import datetime as dt
 from tabulate import tabulate
@@ -13,19 +13,22 @@ from keras import backend as K
 from keras import optimizers
 
 from keras.callbacks import Callback
-from sklearn.metrics import confusion_matrix, f1_score, precision_score, recall_score
 from sklearn.utils import class_weight
 
 from hyperopt import Trials, STATUS_OK, tpe
 from hyperas import optim
 from hyperas.distributions import choice, uniform
 
-from dao.load_data import DoubleStrategyLoadData as train
+from dao.load_kline import GetKline
 from dao.load_depth import GetDepth
-
+from dao.clean_data import CleanKline
 from getXY.get_XY_depth import DataPrepareForXY as create_XY 
 
 class Metrics(Callback):
+    '''
+    Metrics: customize function used for Keras Model Callback
+            to show confusion matrix score precision and recall 
+    '''
     def on_train_begin(self, logs={}):
         self.val_f1s = []
         self.val_recalls = []
@@ -41,58 +44,75 @@ class Metrics(Callback):
         self.val_f1s.append(_val_f1)
         self.val_recalls.append(_val_recall)
         self.val_precisions.append(_val_precision)
-        print ('—val_f1: %f—val_precision: %f—val_recall %f' %(_val_f1, _val_precision, _val_recall))
+        print('—val_f1: %f—val_precision: %f—val_recall %f' %(_val_f1, _val_precision, _val_recall))
         return
 
 def data():
+    '''
+    hyperas setup data 
+    '''
+    configs = json.load(open('config.json', 'r'))
+    model = 'lstm'
+    ####################
+    ## Load Kline
+    pd_kline = GetKline().coin_kline(
+        coin = configs['data']['coin'][0], 
+        base_currency = configs['data']['coin'][1], 
+        start = configs['data']['date'][0], 
+        end = configs['data']['date'][1], 
+        exchange=configs['data']['exchange'],
+        batch=configs['data']['data_batch'])
+    print(tabulate(pd_kline.head(5), headers = 'keys', tablefmt="psql"))
+    
+    ### Clean Kline
+    pd_kline_clean = CleanKline(
+        span = configs['data']['clean_span'], 
+        col = configs['data']['volatility_col']).washData(pd_kline)
 
-    coin = 'xrp'
-    base_currency = 'btc'
-    exchange = BINANCE
-    start = '28 January 2019 00:00'
-    end = '31 January 2019 00:00' 
-    lookback_minutes = 60
-    lookforward_minutes = 1
-    up_factor=0.3
-    down_factor=0.2
-
-    pd_kline = train().coin_kline(
-    coin = coin, 
-    base_currency = base_currency, 
-    start = start, 
-    end = end,  
-    exchange= exchange)
-    #print(tabulate(pd_kline.head(5), headers = 'keys', tablefmt="psql"))
-
+    ## Load Depth
     pd_depth = GetDepth().load_depth(
-        exchange = exchange, 
-        coin = coin, 
-        base_currency = base_currency, 
-        start = start, 
-        end = end
+        exchange = configs['data']['exchange'], 
+        coin = configs['data']['coin'][0], 
+        base_currency = configs['data']['coin'][1], 
+        start = configs['data']['date'][0], 
+        end = configs['data']['date'][1],
+        batch=configs['data']['data_batch']
     )
-    #print(tabulate(pd_depth.head(5), headers = 'keys', tablefmt="psql"))
+    print(tabulate(pd_depth.head(5), headers = 'keys', tablefmt="psql"))
 
     pd_kd = pd.concat([
-        pd_kline, 
+        pd_kline_clean, 
         pd_depth],
         axis = 1, 
         join = 'inner')
-    #print(tabulate(pd_kd.head(), headers = 'keys', tablefmt="psql"))
+    print(tabulate(pd_kd.head(), headers = 'keys', tablefmt="psql"))
 
+    ####################
+    ## get X and Y
     X, Y, feature_names, price, date_minute =  create_XY(
-        lookback_minutes=lookback_minutes, 
-        lookforward_minutes=lookforward_minutes).get_XY(
-        data_original = pd_kd, 
-        up_factor = up_factor, 
-        down_factor= down_factor 
-        )
+                    train_val = configs['data']['train_val_split'], 
+                    train_test= configs['data']['train_test_split']
+                    ).get_XY(
+                            data_original = pd_kd, 
+                            lookback_minutes= configs['data']['lookback_minutes'], 
+                            lookforward_minutes= configs['data']['lookforward_minutes'], 
+                            up_factor = configs['data']['up_factor'], 
+                            down_factor= configs['data']['down_factor'],
+                            step = configs['data']['step'], 
+                            model = model, 
+                            label_category=configs['data']['label_category']
+                            )
 
     X_train, X_val, X_test, Y_train, Y_val, Y_test = create_XY(
-        lookback_minutes=lookback_minutes, 
-        lookforward_minutes=lookforward_minutes).train_test_split(
-            X,
-            Y)
+                    train_val = configs['data']['train_val_split'], 
+                    train_test= configs['data']['train_test_split']
+                    ).train_test_split(
+                                        X,
+                                        Y
+                                        )
+
+    print('positive label train percentage %0.4f' % (len(Y_train[Y_train == 1])/len(Y_train)))
+    print('positive label validation percentage %0.4f' % (len(Y_val[Y_val == 1])/len(Y_val)))
     
     return X_train, Y_train, X_val, Y_val
 
@@ -137,7 +157,6 @@ def create_model(X_train, Y_train, X_val, Y_val):
         batch_size= {{choice([16,32,64,128,256])}}, 
         ##class_weight = self.class_weights, 
         validation_data = (X_val, Y_val), 
-        # callbacks = callbacks, 
         verbose=1)
 
     # model.save(save_fname)
@@ -147,6 +166,9 @@ def create_model(X_train, Y_train, X_val, Y_val):
     return {'loss': -validation_acc, 'status': STATUS_OK, 'model': model}
 
 if __name__ == '__main__':
+    '''
+    Hyperas is used to tune hyperparameters for lstm and nn model
+    '''
     best_run, best_model = optim.minimize(model=create_model,
                                           data=data,
                                           algo=tpe.suggest,
