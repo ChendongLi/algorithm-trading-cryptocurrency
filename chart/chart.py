@@ -40,6 +40,7 @@ class VisualChart:
         fig.autofmt_xdate()
         fig.tight_layout()
         fig.savefig(fig_file)
+        #mpld3.show()
         #plt.show()
 
     def model_evaluation(self, history, n_epoch, save_figure):
@@ -64,6 +65,7 @@ class VisualChart:
         ax.set_ylabel('Accuracy')
         ax.legend(loc='best')
         fig.savefig(fig_file)
+        #mpld3.show()
         #plt.show()
 
     # def chart(data):
@@ -90,4 +92,4 @@ class VisualChart:
     #     #             label = 'up', alpha = 0.5)
     #     #     ax[1].legend(loc = 'best')
 
-        mpld3.show()
+        #mpld3.show()
