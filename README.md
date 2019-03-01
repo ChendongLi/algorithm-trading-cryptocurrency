@@ -7,7 +7,7 @@ Feedforward neunal network and recurrent LSTM model are available to test.
 
 NOTE: .env is not provided in gitbub. Confidential database access is included in .env. If needed, can be provied by email.
 
-## Install requirements
+## Install requirements (Python 3.6)
 ```
 pip install -r requirements.txt
 ```
