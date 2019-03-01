@@ -22,3 +22,7 @@ python ./forecast/Tune_NN.py
 ```
 ## Parameter
 Parameters can be adjusted in config.json
+
+![Alt text](relative/saved_figures/price-volumn--20190228-1841.png?raw=true "Price Volume")
+
+![Alt text](relative/saved_figures/model-evaluation--20190228-1904.png?raw=true "Model Evaluation")
