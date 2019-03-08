@@ -35,8 +35,9 @@ class VisualChart:
 
         fig, ax = plt.subplots(1, 1, figsize = (12, 8))
         ax2 = ax.twinx()
-        ax.set_ylabel('Price')
+        ax.set_ylabel('Price($)')
         ax2.set_ylabel('Volume')
+        ax.set_title('Ripple (XRP) Market Price')
         kline_data['date'] = kline_data.index.map(mdates.date2num)
 
         ohlc = kline_data[['date', 'open', 'high', 'low', 'close']]
